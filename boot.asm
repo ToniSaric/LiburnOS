@@ -1,40 +1,34 @@
 [org 0x7c00]
 
-xor ax, ax
-mov ds, ax
-mov es, ax
+    mov bp, 0x9000                              ; Set stack to top of free memory
+    mov sp, bp
 
+    mov bx, MSG_REAL_MODE
+    call print_string
 
-mov [BOOT_DRIVE], dl
+    call switch_to_pm
 
-mov bp, 0x8000
-mov sp, bp
-
-
-mov bx, 0x9000
-mov dh, 5
-mov dl, [BOOT_DRIVE]
-call disk_load
-
-mov dx, [0x9000]
-call print_hex
-
-mov dx, [0x9000 + 512]
-call print_hex
-
-jmp $
+    jmp $
 
 %include "print_string.asm"
-%include "print_hex.asm"
-%include "disk_load.asm"
+%include "print_string_pm.asm"
+%include "gdt.asm"
+%include "switch_to_pm.asm"
 
-BOOT_DRIVE: db 0
+[bits 32]
+; This is our start position after switiching and initializing protected mode
+BEGIN_PM:
 
+    mov ebx, MSG_PROTECTED_MODE
+    call print_string_pm
+
+    jmp $
+
+; Global variables
+MSG_REAL_MODE db "Started in 16-bit Real mode", 0
+MSG_PROTECTED_MODE db "Successfully started 32-bit protected mode", 0
+
+; Bootsector padding
 times 510-($-$$) db 0
 dw 0xAA55
 
-times 256 dw 0xdada   ; sector 2
-times 256 dw 0xface   ; sector 3
-times 256 dw 0xbeef   ; sector 4
-times 256 dw 0xcafe   ; sector 5
-times 256 dw 0x1337   ; sector 6
