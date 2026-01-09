@@ -1,7 +1,13 @@
 [org 0x7c00]
+[bits 16]
 
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
     mov bp, 0x9000                              ; Set stack to top of free memory
     mov sp, bp
+    cld
 
     mov bx, MSG_REAL_MODE
     call print_string

@@ -38,7 +38,7 @@ gdt_end:        ; Reason for label at the end of GDT is so we can have assembler
                 ; of the GDT for GDT descriptor below
 
 ; GTD descriptor (GDT size (16 bits) + GDT address (32 bits))
-gtd_descriptor:
+gdt_descriptor:
     dw gdt_end - gdt_start - 1  ; Size of GDT
     dd gdt_start                ; Start address of our gdt
 

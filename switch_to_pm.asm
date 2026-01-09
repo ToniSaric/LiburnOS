@@ -3,7 +3,7 @@
 switch_to_pm:
     cli                                     ; Disable interrupts otherwise they will wreak havoc before we set up ISR
 
-    lgdt [gtd_descriptor]                   ; Load global decriptor table, which defines our segments
+    lgdt [gdt_descriptor]                   ; Load global decriptor table, which defines our segments
 
     mov eax, cr0                            ; To move to protected mode we set first byte of CR0 register to 1
     or eax, 0x1
