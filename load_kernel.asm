@@ -1,6 +1,4 @@
 ; Load kernel from disk to KERNEL_OFFSET
-KERNEL_OFFSET equ 0x1000                        ; This is memory offset where we will load our kernel
-
 [bits 16]
 load_kernel:
     mov bx, MSG_LOAD_KERNEL

@@ -1,4 +1,5 @@
 [org 0x7c00]
+KERNEL_OFFSET equ 0x1000                        ; This is memory offset where we will load our kernel
 
     mov [ BOOT_DRIVE ] , dl                     ; BIOS stores our boot drive in DL , so it ’s
                                                 ; best to remember this for later.
