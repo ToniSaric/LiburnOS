@@ -9,9 +9,10 @@ OBJCOPY     := objcopy
 #---------------------------------------------------------------------------------
 # The Directories, Source, Includes, Objects, Binary and Resources
 #---------------------------------------------------------------------------------
-BUILD_DIR  := build
-BOOT_DIR   := boot
-KERNEL_DIR := kernel
+BUILD_DIR    := build
+BOOT_DIR     := boot
+KERNEL_DIR   := kernel
+DRIVERS_DIR  := drivers
 
 LINKER_SCRIPT := linker.ld
 
@@ -56,10 +57,12 @@ KERNEL_BIN       := $(BUILD_DIR)/kernel.bin
 KERNEL_ELF       := $(BUILD_DIR)/kernel.elf
 KERNEL_ENTRY     := $(KERNEL_DIR)/entry.asm
 KERNEL_SRC       := $(shell find $(KERNEL_DIR) -type f -name '*.c')
+DRIVERS_SRC       := $(shell find $(DRIVERS_DIR) -type f -name '*.c')
 #---------------------------------------------------------------------------------
 # Generate object file names
 #---------------------------------------------------------------------------------
 KERNEL_OBJ := $(patsubst $(KERNEL_DIR)/%.c,$(BUILD_DIR)/%.o,$(KERNEL_SRC))
+DRIVERS_DIR_OBJ := $(patsubst $(DRIVERS_DIR)/%.c,$(BUILD_DIR)/%.o,$(DRIVERS_SRC))
 
 all: $(IMAGE_BIN)
 
@@ -73,10 +76,14 @@ $(KERNEL_ENTRY_OBJ): $(KERNEL_ENTRY)
 
 $(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.c
 	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -I drivers -c $< -o $@
+
+$(BUILD_DIR)/%.o: $(DRIVERS_DIR)/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(KERNEL_ELF): $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(LINKER_SCRIPT)
-	$(LD) $(LDFLAGS) -o $@ $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ)
+$(KERNEL_ELF): $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(LINKER_SCRIPT) $(DRIVERS_DIR_OBJ)
+	$(LD) $(LDFLAGS) -o $@ $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(DRIVERS_DIR_OBJ)
 
 
 $(KERNEL_BIN): $(KERNEL_ELF)
