@@ -87,9 +87,10 @@ $(IMAGE_BIN) : $(BOOT_BIN) $(KERNEL_BIN)
 	@dd if=/dev/zero of=$(IMAGE_BIN) bs=$(SECTOR_SIZE) count=$$((1 + $(KERNEL_SECTORS))) status=none
 	@dd if=$(BOOT_BIN)  of=$(IMAGE_BIN) conv=notrunc bs=$(SECTOR_SIZE) seek=0 status=none
 	@dd if=$(KERNEL_BIN) of=$(IMAGE_BIN) conv=notrunc bs=$(SECTOR_SIZE) seek=1 status=none
-	@echo "OS image created: $(IMAGE_BIN)"
 	@echo "Boot sector size: $$(stat -c '%s' $(BOOT_BIN)) bytes"
 	@echo "Kernel size: $$(stat -c '%s' $(KERNEL_BIN)) bytes"
+	@echo "OS image created: $(IMAGE_BIN)"
+
 
 run: all
 	qemu-system-x86_64 -drive format=raw,file=$(IMAGE_BIN)
