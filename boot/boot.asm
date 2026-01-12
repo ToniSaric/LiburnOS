@@ -20,12 +20,12 @@ KERNEL_OFFSET equ 0x1000                        ; This is memory offset where we
 
     jmp $
 
-%include "print_string.asm"
-%include "print_string_pm.asm"
-%include "gdt.asm"
-%include "switch_to_pm.asm"
-%include "disk_load.asm"
-%include "load_kernel.asm"
+%include "boot/print_string.asm"
+%include "boot/print_string_pm.asm"
+%include "boot/gdt.asm"
+%include "boot/switch_to_pm.asm"
+%include "boot/disk_load.asm"
+%include "boot/load_kernel.asm"
 
 [bits 32]
 ; This is our start position after switiching and initializing protected mode
