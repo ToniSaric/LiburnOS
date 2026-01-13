@@ -45,92 +45,86 @@
 
 static uint8_t screen_attr = WHITE_ON_BLACK;
 
-static uint32_t offset_from_row_col(uint32_t row, uint32_t column);
-static uint32_t row_from_offset(uint32_t offset);
-static uint32_t col_from_offset(uint32_t offset);
+static uint32_t cell_from_row_col(uint32_t row, uint32_t column);
+static uint32_t row_from_cell(uint32_t cell);
+static uint32_t col_from_cell(uint32_t cell);
 
 /**
  * @brief Clear the entire VGA text-mode screen.
  *
- * This function fills the VGA text-mode framebuffer with space characters
- * using the default color attribute (WHITE_ON_BLACK).
+ * Fills the VGA text-mode framebuffer with space characters using the
+ * current attribute byte (`screen_attr`). Each cell is written as a 16-bit
+ * value: high byte = attribute, low byte = ASCII character.
  *
- * Each screen cell occupies two bytes in memory:
- *   - byte 0: ASCII character
- *   - byte 1: color attribute
- *
- * The screen is cleared by iterating over all rows and columns and writing
- * a space character and attribute byte to each cell.
- *
- * After calling this function, the screen contents are empty but the cursor
- * position is not modified.
+ * @note This function does not change the hardware cursor position.
  */
-void screen_clear()
+void screen_clear(void)
 {
-    volatile uint8_t *video_memory = (volatile uint8_t *) VIDEO_ADDRESS;
-    for (int i = 0; i < MAX_ROWS * MAX_COLS; i++)
+    volatile uint16_t *video_memory = (volatile uint16_t *) VIDEO_ADDRESS;
+    for (uint32_t i = 0; i < MAX_ROWS * MAX_COLS; i++)
     {
-        video_memory[i * 2] = ' ';                      // Character
-        video_memory[i * 2 + 1] = screen_attr;          // Attribute
+        video_memory[i] = screen_attr << 8 | ' ';
     }
 }
 
+/**
+ * @brief Set the current text attribute (foreground/background color).
+ *
+ * Updates the global attribute used by subsequent screen output.
+ *
+ * @param fg_color Foreground color (low 4 bits used).
+ * @param bg_color Background color (low 4 bits used; stored in high nibble).
+ */
 void screen_set_color(uint8_t fg_color, uint8_t bg_color)
 {
     screen_attr = bg_color << 4 | (fg_color & 0x0F);
 }
 
 /**
- * @brief Set the hardware text cursor position.
+ * @brief Set the VGA hardware cursor position (in cells).
  *
- * This function updates the VGA hardware cursor to point to a new screen
- * position.
+ * Writes the cursor position to the VGA controller via I/O ports. The VGA
+ * hardware stores the cursor as a cell index (0..MAX_ROWS*MAX_COLS-1),
+ * split across two internal registers (high and low byte).
  *
- * The VGA controller stores the cursor position as a cell index (not a
- * byte offset). Therefore, the supplied byte offset is first converted
- * into a cell offset by dividing by two.
- *
- * The cursor position is written as a 16-bit value split across two VGA
- * internal registers:
- *   - Cursor High Register (upper 8 bits)
- *   - Cursor Low Register  (lower 8 bits)
- *
- * @param offset Cursor position expressed as a byte offset in video memory.
+ * @param cell Cursor position as a cell index.
  */
-void screen_set_cursor(uint32_t offset)
+void screen_set_cursor(uint32_t cell)
 {
-    offset /= 2;
     port_byte_out(REG_SCREEN_CTRL, REG_CURSOR_HIGH);
-    port_byte_out(REG_SCREEN_DATA, (uint8_t)(offset >> 8));
+    port_byte_out(REG_SCREEN_DATA, (uint8_t)(cell >> 8));
     port_byte_out(REG_SCREEN_CTRL, REG_CURSOR_LOW);
-    port_byte_out(REG_SCREEN_DATA, (uint8_t)(offset & 0xff));
+    port_byte_out(REG_SCREEN_DATA, (uint8_t)(cell & 0xff));
 }
 
 /**
- * @brief Get the current hardware text cursor position.
+ * @brief Get the current VGA hardware cursor position (in cells).
  *
- * This function reads the current cursor position from the VGA controller.
+ * Reads the cursor position from the VGA controller via I/O ports. The VGA
+ * reports the cursor as a cell index split across two registers (high and
+ * low byte).
  *
- * The VGA hardware reports the cursor position as a cell index. The value
- * is read by querying two internal registers:
- *   - Cursor High Register (upper 8 bits)
- *   - Cursor Low Register  (lower 8 bits)
- *
- * The returned value is converted from a cell index into a byte offset
- * suitable for direct use with VGA text-mode video memory.
- *
- * @return The current cursor position as a byte offset in video memory.
+ * @return Current cursor position as a cell index.
  */
-uint32_t screen_get_cursor()
+uint32_t screen_get_cursor(void)
 {
     port_byte_out(REG_SCREEN_CTRL, REG_CURSOR_HIGH);
-    uint32_t offset = port_byte_in(REG_SCREEN_DATA) << 8;
-    port_byte_out(REG_SCREEN_CTRL, REG_CURSOR_LOW);
-    offset += port_byte_in(REG_SCREEN_DATA);
+    uint32_t cell = (uint32_t)port_byte_in(REG_SCREEN_DATA) << 8;
 
-    return offset * 2;
+    port_byte_out(REG_SCREEN_CTRL, REG_CURSOR_LOW);
+    cell |= (uint32_t)port_byte_in(REG_SCREEN_DATA);
+
+    return cell;
 }
 
+/**
+ * @brief Print a NUL-terminated string to the screen at the current cursor.
+ *
+ * Outputs characters one-by-one using `screen_putc()`.
+ *
+ * @param str Pointer to a NUL-terminated string. If NULL, the function
+ *            returns without printing anything.
+ */
 void screen_print(const char *str)
 {
     if (!str)
@@ -138,90 +132,134 @@ void screen_print(const char *str)
         return;
     }
 
-    while(*str)
+    while (*str)
     {
         screen_putc(*str++);
     }
 }
 
+/**
+ * @brief Output a single character to the screen.
+ *
+ * Writes a character to the VGA text-mode framebuffer at the current cursor
+ * position, then advances the cursor. Handles basic control characters:
+ * - '\\n' (newline): move cursor to start of next row
+ * - '\\r' (carriage return): move cursor to start of current row
+ * - '\\b' (backspace): move cursor back one cell and erase it (if possible)
+ *
+ * If the cursor moves beyond the last screen row, the screen is scrolled
+ * up by one line and the cursor is placed on the last row.
+ *
+ * @param c Character to output.
+ *
+ * @note This implementation reads and updates the hardware cursor on each
+ *       call (via `screen_get_cursor()` / `screen_set_cursor()`).
+ */
 void screen_putc(char c)
 {
-    volatile uint8_t *video_memory = (volatile uint8_t *) VIDEO_ADDRESS;
-    // Get current position
-    uint32_t offset = screen_get_cursor();
+    volatile uint16_t *video_memory = (volatile uint16_t *) VIDEO_ADDRESS;
+
+    uint32_t cell = screen_get_cursor();
+
     if (c == '\n')
     {
-        // Newline start in next row
-        uint32_t row = row_from_offset(offset);
-        offset = offset_from_row_col(row + 1, 0);
+        uint32_t row = row_from_cell(cell);
+        cell = cell_from_row_col(row + 1, 0);
     }
-    else if(c == '\r')
+    else if (c == '\r')
     {
-        // Carriage return: start of current row
-        uint32_t row = row_from_offset(offset);
-        offset = offset_from_row_col(row, 0);
+        uint32_t row = row_from_cell(cell);
+        cell = cell_from_row_col(row, 0);
     }
-    else if(c == '\b')
+    else if (c == '\b')
     {
-        // Backspace: move back one cell and erase (if not at 0)
-        if (offset >= 2)
+        if (cell > 0)
         {
-            offset -= 2;
-            video_memory[offset] = ' ';
-            video_memory[offset + 1] = screen_attr;
+            cell -= 1;
+            video_memory[cell] = (screen_attr << 8) | ' ';
         }
     }
     else
     {
-        // Normal character
-        video_memory[offset] = c;
-        video_memory[offset + 1] = screen_attr;
-        offset += 2;
+        video_memory[cell] = (screen_attr << 8) | c;
+        cell++;
     }
 
-    if (offset >= (MAX_ROWS * MAX_COLS * 2))
+    if (cell >= (MAX_ROWS * MAX_COLS))
     {
         screen_scroll();
-        offset -= 2 * MAX_COLS;
+        cell -= MAX_COLS;
     }
-    screen_set_cursor(offset);
+
+    screen_set_cursor(cell);
 }
 
+/**
+ * @brief Scroll the screen up by one text row.
+ *
+ * Moves rows 1..MAX_ROWS-1 up to rows 0..MAX_ROWS-2, then clears the last
+ * row by filling it with space characters using the current attribute.
+ *
+ * @note This function does not directly update the hardware cursor; callers
+ *       should adjust the cursor as needed.
+ */
 void screen_scroll(void)
 {
-    volatile uint8_t *video_memory = (volatile uint8_t *) VIDEO_ADDRESS;
+    volatile uint16_t *video_memory = (volatile uint16_t *) VIDEO_ADDRESS;
 
     for (uint32_t i = 1; i < MAX_ROWS; i++)
     {
         for (uint32_t j = 0; j < MAX_COLS; j++)
         {
-            uint32_t src_offset = offset_from_row_col(i, j);
-            uint32_t dest_offset = offset_from_row_col(i - 1, j);
-            video_memory[dest_offset] = video_memory[src_offset];
-            video_memory[dest_offset + 1] = video_memory[src_offset + 1];
+            uint32_t src_cell = cell_from_row_col(i, j);
+            uint32_t dest_cell = cell_from_row_col(i - 1, j);
+            video_memory[dest_cell] = video_memory[src_cell];
         }
     }
 
     for (uint32_t j = 0; j < MAX_COLS; j++)
     {
-        uint32_t offset = offset_from_row_col(MAX_ROWS - 1, j);
-        video_memory[offset] = ' ';
-        video_memory[offset + 1] = screen_attr;
+        uint32_t cell = cell_from_row_col(MAX_ROWS - 1, j);
+        video_memory[cell] = (screen_attr << 8) | ' ';
     }
 }
 
-
-static uint32_t offset_from_row_col(uint32_t row, uint32_t column)
+/**
+ * @brief Convert a (row, column) position to a linear cell index.
+ *
+ * The VGA text framebuffer is laid out in row-major order:
+ * `cell = row * MAX_COLS + column`.
+ *
+ * @param row    Screen row (0..MAX_ROWS-1).
+ * @param column Screen column (0..MAX_COLS-1).
+ *
+ * @return Linear cell index corresponding to (row, column).
+ */
+static uint32_t cell_from_row_col(uint32_t row, uint32_t column)
 {
-    return 2 * (row * MAX_COLS + column);
+    return row * MAX_COLS + column;
 }
 
-static uint32_t row_from_offset(uint32_t offset)
+/**
+ * @brief Get the row number corresponding to a linear cell index.
+ *
+ * @param cell Linear cell index.
+ *
+ * @return Screen row containing the cell.
+ */
+static uint32_t row_from_cell(uint32_t cell)
 {
-    return offset / (2 * MAX_COLS);
+    return cell / MAX_COLS;
 }
 
-static uint32_t col_from_offset(uint32_t offset)
+/**
+ * @brief Get the column number corresponding to a linear cell index.
+ *
+ * @param cell Linear cell index.
+ *
+ * @return Screen column containing the cell.
+ */
+static uint32_t col_from_cell(uint32_t cell)
 {
-    return (offset / 2) % MAX_COLS;
+    return cell % MAX_COLS;
 }
