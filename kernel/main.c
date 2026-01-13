@@ -1,7 +1,15 @@
+#include "screen.h"
+
 void kmain()
 {
-    volatile char *video_memory = (char *) 0xb8000;
-    *video_memory = 'X';
+    screen_clear();
+    screen_set_cursor(0);
 
+    screen_print("Toni");
+    for (int i = 0; i < 5000000; i++){}
+    for (int i = 0; i < 5000000; i++){}
+    for (int i = 0; i < 5000000; i++){}
+    for (int i = 0; i < 5000000; i++){}
+    for (int i = 0; i < 5000000; i++){}
     for (;;){}
 }
