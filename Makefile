@@ -13,6 +13,7 @@ BUILD_DIR    := build
 BOOT_DIR     := boot
 KERNEL_DIR   := kernel
 DRIVERS_DIR  := drivers
+LIB_DIR      := lib
 
 LINKER_SCRIPT := linker.ld
 
@@ -31,7 +32,7 @@ KERNEL_ENTRY_OBJ := $(BUILD_DIR)/kernel_entry.o
 # Flags
 #---------------------------------------------------------------------------------
 ASFLAGS=-f bin
-CFLAGS  := -m32 -ffreestanding
+CFLAGS  := -m32 -ffreestanding -fno-builtin -fno-stack-protector
 LDFLAGS := -m elf_i386 -T $(LINKER_SCRIPT)
 
 KERNEL_SECTORS := 15
@@ -58,6 +59,9 @@ KERNEL_ELF       := $(BUILD_DIR)/kernel.elf
 KERNEL_ENTRY     := $(KERNEL_DIR)/entry.asm
 KERNEL_SRC       := $(shell find $(KERNEL_DIR) -type f -name '*.c')
 DRIVERS_SRC       := $(shell find $(DRIVERS_DIR) -type f -name '*.c')
+
+LIB_SRC := $(shell find $(LIB_DIR) -type f -name '*.c')
+LIB_OBJ := $(patsubst $(LIB_DIR)/%.c,$(BUILD_DIR)/%.o,$(LIB_SRC))
 #---------------------------------------------------------------------------------
 # Generate object file names
 #---------------------------------------------------------------------------------
@@ -74,16 +78,21 @@ $(KERNEL_ENTRY_OBJ): $(KERNEL_ENTRY)
 	@mkdir -p $(BUILD_DIR)
 	$(ASM) -f elf32 $< -o $@
 
+$(BUILD_DIR)/%.o: $(LIB_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -I drivers -I lib -c $< -o $@
+
 $(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -I drivers -c $< -o $@
+	$(CC) $(CFLAGS) -I drivers -I lib -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(DRIVERS_DIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -I drivers -I lib -c $< -o $@
 
-$(KERNEL_ELF): $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(LINKER_SCRIPT) $(DRIVERS_DIR_OBJ)
-	$(LD) $(LDFLAGS) -o $@ $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(DRIVERS_DIR_OBJ)
+
+$(KERNEL_ELF): $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(LINKER_SCRIPT) $(DRIVERS_DIR_OBJ) $(LIB_OBJ)
+	$(LD) $(LDFLAGS) -o $@ $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(DRIVERS_DIR_OBJ) $(LIB_OBJ)
 
 
 $(KERNEL_BIN): $(KERNEL_ELF)

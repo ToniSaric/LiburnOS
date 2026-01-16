@@ -42,6 +42,7 @@
 
 #include "screen.h"
 #include "port.h"
+#include "memory.h"
 
 static uint8_t screen_attr = WHITE_ON_BLACK;
 
@@ -207,21 +208,14 @@ void screen_scroll(void)
 {
     volatile uint16_t *video_memory = (volatile uint16_t *) VIDEO_ADDRESS;
 
-    for (uint32_t i = 1; i < MAX_ROWS; i++)
-    {
-        for (uint32_t j = 0; j < MAX_COLS; j++)
-        {
-            uint32_t src_cell = cell_from_row_col(i, j);
-            uint32_t dest_cell = cell_from_row_col(i - 1, j);
-            video_memory[dest_cell] = video_memory[src_cell];
-        }
-    }
 
-    for (uint32_t j = 0; j < MAX_COLS; j++)
-    {
-        uint32_t cell = cell_from_row_col(MAX_ROWS - 1, j);
-        video_memory[cell] = (screen_attr << 8) | ' ';
-    }
+    memmove((void *) video_memory,
+            (void *) (video_memory + MAX_COLS),
+            (MAX_ROWS - 1) * MAX_COLS * sizeof(uint16_t));
+
+    memset16((void *) (video_memory + ((MAX_ROWS - 1) * MAX_COLS)),
+             (uint16_t) ((screen_attr << 8) | ' '),
+             MAX_COLS);
 }
 
 /**

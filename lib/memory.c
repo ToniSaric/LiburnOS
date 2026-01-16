@@ -1,3 +1,4 @@
+#include "memory.h"
 
 void *memcpy(void *dest, const void *src, size_t n)
 {
@@ -55,11 +56,22 @@ void *memset(void *dest, int val, size_t n)
     return dest;
 }
 
+void *memset16(void *dest, uint16_t val, size_t n)
+{
+    uint16_t *temp = (uint16_t *) dest;
+
+    while (n--)
+    {
+        *temp ++ = val;
+    }
+
+    return dest;
+}
+
 int memcmp(const void *s1, const void *s2, size_t n)
 {
     const unsigned char *sc1 = (const unsigned char *) s1;
     const unsigned char *sc2 = (const unsigned char *) s2;
-    int diff = 0;
 
     while(n--)
     {

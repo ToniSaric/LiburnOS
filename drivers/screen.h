@@ -16,9 +16,10 @@
 #define REG_CURSOR_HIGH 14
 #define REG_CURSOR_LOW 15
 
-extern void screen_clear();
-extern void screen_set_cursor(uint32_t offset);
-extern uint32_t screen_get_cursor();
+void screen_clear();
+void screen_set_color(uint8_t fg_color, uint8_t bg_color);
+void screen_set_cursor(uint32_t offset);
+uint32_t screen_get_cursor();
 void screen_scroll(void);
 void screen_putc(char c);
 void screen_print(const char *str);
