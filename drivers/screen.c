@@ -45,10 +45,20 @@
 #include "memory.h"
 
 static uint8_t screen_attr = WHITE_ON_BLACK;
+static uint32_t cursor_cell;;
 
 static uint32_t cell_from_row_col(uint32_t row, uint32_t column);
 static uint32_t row_from_cell(uint32_t cell);
 static uint32_t col_from_cell(uint32_t cell);
+
+
+void screen_init()
+{
+    screen_attr = WHITE_ON_BLACK;
+    screen_clear();
+    cursor_cell = 0;
+    screen_set_cursor(0);
+}
 
 /**
  * @brief Clear the entire VGA text-mode screen.
@@ -158,42 +168,41 @@ void screen_print(const char *str)
  */
 void screen_putc(char c)
 {
-    volatile uint16_t *video_memory = (volatile uint16_t *) VIDEO_ADDRESS;
-
-    uint32_t cell = screen_get_cursor();
+    volatile uint16_t *video_memory = (volatile uint16_t *)VIDEO_ADDRESS;
 
     if (c == '\n')
     {
-        uint32_t row = row_from_cell(cell);
-        cell = cell_from_row_col(row + 1, 0);
+        uint32_t row = row_from_cell(cursor_cell);
+        cursor_cell = cell_from_row_col(row + 1, 0);
     }
     else if (c == '\r')
     {
-        uint32_t row = row_from_cell(cell);
-        cell = cell_from_row_col(row, 0);
+        uint32_t row = row_from_cell(cursor_cell);
+        cursor_cell = cell_from_row_col(row, 0);
     }
     else if (c == '\b')
     {
-        if (cell > 0)
+        if (cursor_cell > 0)
         {
-            cell -= 1;
-            video_memory[cell] = (screen_attr << 8) | ' ';
+            cursor_cell--;
+            video_memory[cursor_cell] = ((uint16_t)screen_attr << 8) | (uint8_t)' ';
         }
     }
     else
     {
-        video_memory[cell] = (screen_attr << 8) | c;
-        cell++;
+        video_memory[cursor_cell] = ((uint16_t)screen_attr << 8) | (uint8_t)c;
+        cursor_cell++;
     }
 
-    if (cell >= (MAX_ROWS * MAX_COLS))
+    if (cursor_cell >= (MAX_ROWS * MAX_COLS))
     {
         screen_scroll();
-        cell -= MAX_COLS;
+        cursor_cell -= MAX_COLS;
     }
 
-    screen_set_cursor(cell);
+    screen_set_cursor(cursor_cell);
 }
+
 
 /**
  * @brief Scroll the screen up by one text row.
