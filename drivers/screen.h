@@ -16,6 +16,8 @@
 #define REG_CURSOR_HIGH 14
 #define REG_CURSOR_LOW 15
 
+#define TAB_WIDTH 4
+
 void screen_init();
 void screen_clear();
 void screen_set_color(uint8_t fg_color, uint8_t bg_color);

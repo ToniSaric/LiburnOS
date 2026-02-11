@@ -188,6 +188,25 @@ void screen_putc(char c)
             video_memory[cursor_cell] = ((uint16_t)screen_attr << 8) | (uint8_t)' ';
         }
     }
+    else if (c == '\t')
+    {
+        /* Advance cursor to the next tab stop (every TAB_WIDTH columns).
+         * Fill skipped cells with spaces so they overwrite old content. */
+        uint32_t col = col_from_cell(cursor_cell);
+        uint32_t next_tab = (col + TAB_WIDTH) & ~(TAB_WIDTH - 1);
+
+        if (next_tab > MAX_COLS)
+        {
+            next_tab = MAX_COLS;
+        }
+
+        while (col < next_tab)
+        {
+            video_memory[cursor_cell] = ((uint16_t)screen_attr << 8) | (uint8_t)' ';
+            cursor_cell++;
+            col++;
+        }
+    }
     else
     {
         video_memory[cursor_cell] = ((uint16_t)screen_attr << 8) | (uint8_t)c;
