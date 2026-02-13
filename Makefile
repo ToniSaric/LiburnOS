@@ -58,6 +58,9 @@ KERNEL_BIN       := $(BUILD_DIR)/kernel.bin
 KERNEL_ELF       := $(BUILD_DIR)/kernel.elf
 KERNEL_ENTRY     := $(KERNEL_DIR)/entry.asm
 KERNEL_SRC       := $(shell find $(KERNEL_DIR) -type f -name '*.c')
+KERNEL_ASM       := $(shell find $(KERNEL_DIR) -type f -name '*.asm' ! -name 'entry.asm')
+KERNEL_ASM_OBJ   := $(patsubst $(KERNEL_DIR)/%.asm,$(BUILD_DIR)/%.o,$(KERNEL_ASM))
+
 DRIVERS_SRC       := $(shell find $(DRIVERS_DIR) -type f -name '*.c')
 
 LIB_SRC := $(shell find $(LIB_DIR) -type f -name '*.c')
@@ -86,13 +89,17 @@ $(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I drivers -I lib -c $< -o $@
 
+$(BUILD_DIR)/%.o: $(KERNEL_DIR)/%.asm
+	@mkdir -p $(dir $@)
+	$(ASM) -f elf32 $< -o $@
+
 $(BUILD_DIR)/%.o: $(DRIVERS_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I drivers -I lib -c $< -o $@
 
 
-$(KERNEL_ELF): $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(LINKER_SCRIPT) $(DRIVERS_DIR_OBJ) $(LIB_OBJ)
-	$(LD) $(LDFLAGS) -o $@ $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(DRIVERS_DIR_OBJ) $(LIB_OBJ)
+$(KERNEL_ELF): $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(KERNEL_ASM_OBJ) $(LINKER_SCRIPT) $(DRIVERS_DIR_OBJ) $(LIB_OBJ)
+	$(LD) $(LDFLAGS) -o $@ $(KERNEL_ENTRY_OBJ) $(KERNEL_OBJ) $(KERNEL_ASM_OBJ) $(DRIVERS_DIR_OBJ) $(LIB_OBJ)
 
 
 $(KERNEL_BIN): $(KERNEL_ELF)
