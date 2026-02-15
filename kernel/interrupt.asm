@@ -14,42 +14,35 @@ isr_stub_%+%1:
     jmp isr_common_stub
 %endmacro
 
-; Common ISR stub - saves context, calls handler, restores context
 isr_common_stub:
-    ; Save all general-purpose registers
-    pushad                      ; Pushes EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI
+    pushad
 
-    ; Save segment registers
     push ds
     push es
     push fs
     push gs
 
-    ; Load kernel data segment
-    mov ax, 0x10                ; Kernel data segment selector
+    mov ax, 0x10
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    ; Call the C exception handler
-    ; Stack contains: interrupt_num, error_code
+    ; Push parameters for exception_handler(error_code, interrupt_num)
+    push dword [esp + 48]
+    push dword [esp + 56]
     call exception_handler
+    add esp, 8
 
-    ; Restore segment registers
     pop gs
     pop fs
     pop es
     pop ds
 
-    ; Restore general-purpose registers
     popad
-
-    ; Clean up error code and interrupt number
     add esp, 8
-
-    ; Return from interrupt
     iret
+
 
 extern exception_handler
 
