@@ -23,7 +23,7 @@ void idt_init()
 {
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
-    for (uint16_t vector = 0; vector < 32; vector++)
+    for (uint16_t vector = 0; vector < 48; vector++)
     {
         idt_set_descriptor(vector, isr_stub_table[vector], 0x8E); // Set the descriptor for each of the first 32 vectors (CPU exceptions) with appropriate flags
         vectors[vector] = true; // Mark this vector as set

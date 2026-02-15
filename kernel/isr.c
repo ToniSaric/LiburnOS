@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "../drivers/screen.h"
 #include "../lib/kprintf.h"
+#include "../drivers/pic.h"
 
 // Exception names for better debugging
 static const char* exception_messages[] =
@@ -39,12 +40,17 @@ static const char* exception_messages[] =
     "Reserved"
 };
 
-__attribute__((noreturn))
 void exception_handler(uint32_t error_code, uint32_t interrupt_num)
 {
     // Note: Parameters are reversed on stack (interrupt_num is pushed last)
     // So we declare them reversed: error_code, interrupt_num
-    
+    if (interrupt_num >= 32 && interrupt_num <= 47)
+    {
+        uint8_t irq = interrupt_num - 32;
+        // TODO: dispatch to device handlers
+        pic_send_eoi(irq);
+        return;
+    }
     kprintf("\n\n=== KERNEL PANIC ===\n");
     kprintf("Exception: %s (#%d)\n", 
             exception_messages[interrupt_num], 

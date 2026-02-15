@@ -49,7 +49,7 @@ isr_common_stub:
     add esp, 8
 
     ; Return from interrupt
-    ire
+    iret
 
 extern exception_handler
 
@@ -87,11 +87,29 @@ isr_no_err_stub 29  ; Reserved
 isr_err_stub    30  ; Security Exception
 isr_no_err_stub 31  ; Reserved
 
+; Hardware IRQ Handlers (32-47)
+isr_no_err_stub 32  ; IRQ0 - Timer
+isr_no_err_stub 33  ; IRQ1 - Keyboard
+isr_no_err_stub 34  ; IRQ2 - Cascade
+isr_no_err_stub 35  ; IRQ3 - COM2
+isr_no_err_stub 36  ; IRQ4 - COM1
+isr_no_err_stub 37  ; IRQ5 - LPT2
+isr_no_err_stub 38  ; IRQ6 - Floppy
+isr_no_err_stub 39  ; IRQ7 - Spurious
+isr_no_err_stub 40  ; IRQ8 - RTC
+isr_no_err_stub 41  ; IRQ9
+isr_no_err_stub 42  ; IRQ10
+isr_no_err_stub 43  ; IRQ11
+isr_no_err_stub 44  ; IRQ12 - Mouse
+isr_no_err_stub 45  ; IRQ13 - FPU
+isr_no_err_stub 46  ; IRQ14 - ATA Primary
+isr_no_err_stub 47  ; IRQ15 - ATA Secondary
+
 ; Export the ISR stub table
 global isr_stub_table
 isr_stub_table:
 %assign i 0
-%rep 32
+%rep 48
     dd isr_stub_%+i
 %assign i i+1
 %endrep
